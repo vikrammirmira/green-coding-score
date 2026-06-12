@@ -23,8 +23,6 @@ def record_optimization(payload: OptimizationRequest):
              improvement_pct, tokens_saved, recorded_at),
         )
 
-    # Reflect savings in score by injecting a synthetic event for saved tokens
-    # (we record the optimized cost as the new event)
     update_user_score(payload.user_id)
 
     return OptimizationResponse(

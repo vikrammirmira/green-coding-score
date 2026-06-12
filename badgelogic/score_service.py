@@ -5,6 +5,8 @@ from models.services.calculator import (
     calc_carbon_score,
     calc_total_score,
     evaluate_badges,
+    ENERGY_PER_TOKEN_KWH,
+    CARBON_INTENSITY_GCO2_PER_KWH,
 )
 
 
@@ -26,9 +28,19 @@ def update_user_score(user_id: str) -> None:
         total_energy = row["total_energy_kwh"] or 0.0
         total_carbon = row["total_carbon_gco2"] or 0.0
 
-        avg_tokens = total_tokens / event_count if event_count else 0
+        opt_row = conn.execute(
+            "SELECT SUM(tokens_saved) AS total_tokens_saved FROM optimizations WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        total_tokens_saved = opt_row["total_tokens_saved"] or 0
+        total_carbon_saved = total_tokens_saved * ENERGY_PER_TOKEN_KWH * CARBON_INTENSITY_GCO2_PER_KWH
+
+        net_tokens = max(total_tokens - total_tokens_saved, 0)
+        net_carbon = max(total_carbon - total_carbon_saved, 0.0)
+
+        avg_tokens = net_tokens / event_count if event_count else 0
         eff_score = calc_efficiency_score(avg_tokens)
-        carb_score = calc_carbon_score(total_carbon, event_count)
+        carb_score = calc_carbon_score(net_carbon, event_count)
         total_score = calc_total_score(eff_score, carb_score)
         updated_at = datetime.now(timezone.utc).isoformat()
 
